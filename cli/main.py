@@ -167,6 +167,12 @@ class MessageBuffer:
         status_message = status_messages.get(status, status)
         self.add_message("System", f"{agent} {status_message}")
 
+    def get_active_agent(self):
+        for agent, status in self.agent_status.items():
+            if status == "in_progress":
+                return agent
+        return None
+
     def update_report_section(self, section_name, content):
         if section_name in self.report_sections:
             self.report_sections[section_name] = content
@@ -446,7 +452,11 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
     reports_total = len(message_buffer.report_sections)
 
     # Build stats parts
-    stats_parts = [f"Agents: {agents_completed}/{agents_total}"]
+    agent_progress = f"Agents: {agents_completed}/{agents_total}"
+    active_agent = message_buffer.get_active_agent()
+    if active_agent:
+        agent_progress += f" ({active_agent})"
+    stats_parts = [agent_progress]
 
     # LLM and tool stats from callback handler
     if stats_handler:
