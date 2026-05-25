@@ -30,6 +30,8 @@ PROVIDER_API_KEY_ENV: dict[str, Optional[str]] = {
     "minimax":    "MINIMAX_API_KEY",
     "minimax-cn": "MINIMAX_CN_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
+    # Codex app-server owns ChatGPT/API auth via the local Codex CLI profile.
+    "codex":      None,
     # Local runtimes do not authenticate.
     "ollama":     None,
 }
