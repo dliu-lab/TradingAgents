@@ -55,13 +55,14 @@ TOOL_RESPONSE_SCHEMA: dict[str, Any] = {
                 "properties": {
                     "id": {"type": "string"},
                     "name": {"type": "string"},
-                    "args": {"type": "object", "additionalProperties": True},
+                    "args": {"type": "object", "additionalProperties": False},
                 },
                 "required": ["name", "args"],
                 "additionalProperties": False,
             },
         },
     },
+    "required": ["final", "tool_calls"],
     "additionalProperties": False,
 }
 
@@ -403,6 +404,7 @@ class CodexToolBoundRunnable(Runnable[Any, AIMessage]):
     def __init__(self, model: CodexAppServerChatModel, tools: list[Any]) -> None:
         self.model = model
         self.tool_specs = [_tool_to_spec(tool) for tool in tools]
+        self._output_schema = _tool_response_schema(self.tool_specs)
 
     def invoke(
         self,
@@ -412,7 +414,7 @@ class CodexToolBoundRunnable(Runnable[Any, AIMessage]):
     ) -> AIMessage:
         raw = self.model._run_input(
             input,
-            output_schema=TOOL_RESPONSE_SCHEMA,
+            output_schema=self._output_schema,
             prompt_suffix=_tool_prompt_suffix(self.tool_specs),
         )
         payload = _parse_json_object(raw)
@@ -445,7 +447,7 @@ class CodexStructuredRunnable(Runnable[Any, Any]):
         config: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
-        schema_json = self.schema.model_json_schema()
+        schema_json = _strict_json_schema(self.schema.model_json_schema())
         raw = self.model._run_input(
             input,
             output_schema=schema_json,
@@ -536,12 +538,87 @@ def _tool_to_spec(tool: Any) -> dict[str, Any]:
         }
 
 
+def _tool_response_schema(tool_specs: list[dict[str, Any]]) -> dict[str, Any]:
+    schema = json.loads(json.dumps(TOOL_RESPONSE_SCHEMA))
+    schema["properties"]["tool_calls"]["items"] = _tool_call_item_schema(tool_specs)
+    return schema
+
+
+def _tool_call_item_schema(tool_specs: list[dict[str, Any]]) -> dict[str, Any]:
+    variants = [
+        _single_tool_call_schema(spec)
+        for spec in tool_specs
+        if isinstance(spec.get("name"), str) and spec["name"]
+    ]
+    if not variants:
+        return _single_tool_call_schema({"name": "", "parameters": {}})
+    return {"anyOf": variants}
+
+
+def _single_tool_call_schema(tool_spec: dict[str, Any]) -> dict[str, Any]:
+    name = str(tool_spec.get("name") or "")
+    name_schema: dict[str, Any] = {"type": "string"}
+    if name:
+        name_schema["enum"] = [name]
+    parameters = tool_spec.get("parameters")
+    args_schema = (
+        _strict_json_schema(parameters)
+        if isinstance(parameters, dict) and parameters
+        else _empty_strict_object_schema()
+    )
+
+    return _strict_json_schema(
+        {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string"},
+                "name": name_schema,
+                "args": args_schema,
+            },
+            "required": ["id", "name", "args"],
+            "additionalProperties": False,
+        }
+    )
+
+
+def _strict_json_schema(value: Any) -> Any:
+    if isinstance(value, list):
+        return [_strict_json_schema(item) for item in value]
+    if not isinstance(value, dict):
+        return value
+
+    schema: dict[str, Any] = {}
+    for key, item in value.items():
+        if key == "default":
+            continue
+        schema[key] = _strict_json_schema(item)
+
+    if schema.get("type") == "object" or "properties" in schema:
+        properties = schema.get("properties")
+        if not isinstance(properties, dict):
+            properties = {}
+            schema["properties"] = properties
+        schema["required"] = list(properties)
+        schema["additionalProperties"] = False
+    return schema
+
+
+def _empty_strict_object_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": False,
+    }
+
+
 def _tool_prompt_suffix(tool_specs: list[dict[str, Any]]) -> str:
     return (
         "You may call at most one tool before answering. Return JSON only. "
-        "Do not include Markdown fences. If a tool is needed, return "
-        '{"tool_calls":[{"id":"call_1","name":"tool_name","args":{...}}]}. '
-        'If no tool is needed, return {"final":"your answer"}.\n\n'
+        "Do not include Markdown fences. Always include both top-level keys: "
+        '"final" and "tool_calls". If a tool is needed, return '
+        '{"final":"","tool_calls":[{"id":"call_1","name":"tool_name","args":{...}}]}. '
+        'If no tool is needed, return {"final":"your answer","tool_calls":[]}.\n\n'
         f"Available tools:\n{json.dumps(tool_specs, indent=2)}"
     )
 

@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 from langchain_core.messages import HumanMessage
+from langchain_core.tools import tool
 from pydantic import BaseModel
 
 from tradingagents.llm_clients.api_key_env import get_api_key_env
@@ -109,7 +110,7 @@ def test_codex_process_client_runs_app_server_turn(monkeypatch):
 
     result = client.run_turn(
         prompt="Summarize NVDA.",
-        model="gpt-5.4",
+        model="gpt-5.5",
         output_schema={"type": "object"},
     )
 
@@ -131,12 +132,12 @@ def test_codex_process_client_runs_app_server_turn(monkeypatch):
 @pytest.mark.unit
 def test_codex_chat_model_invokes_runner_and_returns_ai_message():
     runner = FakeRunner("Market report")
-    llm = CodexAppServerChatModel(model="gpt-5.4", runner=runner, cwd="/tmp/project")
+    llm = CodexAppServerChatModel(model="gpt-5.5", runner=runner, cwd="/tmp/project")
 
     response = llm.invoke([HumanMessage(content="Analyze NVDA")])
 
     assert response.content == "Market report"
-    assert runner.calls[0]["model"] == "gpt-5.4"
+    assert runner.calls[0]["model"] == "gpt-5.5"
     assert runner.calls[0]["cwd"] == "/tmp/project"
     assert "Analyze NVDA" in runner.calls[0]["prompt"]
 
@@ -156,7 +157,7 @@ def test_codex_bind_tools_translates_json_tool_calls_to_ai_message():
             }
         )
     )
-    llm = CodexAppServerChatModel(model="gpt-5.4", runner=runner)
+    llm = CodexAppServerChatModel(model="gpt-5.5", runner=runner)
 
     response = llm.bind_tools([lambda ticker: ticker]).invoke("Fetch data")
 
@@ -170,6 +171,44 @@ def test_codex_bind_tools_translates_json_tool_calls_to_ai_message():
         }
     ]
     assert "Return JSON only" in runner.calls[0]["prompt"]
+    assert '{"final":"","tool_calls":' in runner.calls[0]["prompt"]
+
+
+@pytest.mark.unit
+def test_codex_bind_tools_sends_strict_schema_with_tool_args():
+    @tool
+    def get_price(ticker: str, look_back_days: int = 30) -> str:
+        """Fetch recent price data."""
+        return f"{ticker}:{look_back_days}"
+
+    runner = FakeRunner(
+        json.dumps(
+            {
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "name": "get_price",
+                        "args": {"ticker": "NVDA", "look_back_days": 5},
+                    }
+                ]
+            }
+        )
+    )
+    llm = CodexAppServerChatModel(model="gpt-5.5", runner=runner)
+
+    llm.bind_tools([get_price]).invoke("Fetch data")
+
+    schema = runner.calls[0]["output_schema"]
+    assert schema["required"] == ["final", "tool_calls"]
+    tool_call_schema = schema["properties"]["tool_calls"]["items"]["anyOf"][0]
+    args_schema = tool_call_schema["properties"]["args"]
+    assert tool_call_schema["required"] == ["id", "name", "args"]
+    assert tool_call_schema["properties"]["name"]["enum"] == ["get_price"]
+    assert args_schema["required"] == ["ticker", "look_back_days"]
+    assert args_schema["additionalProperties"] is False
+    assert args_schema["properties"]["ticker"]["type"] == "string"
+    assert args_schema["properties"]["look_back_days"]["type"] == "integer"
+    assert "default" not in args_schema["properties"]["look_back_days"]
 
 
 @pytest.mark.unit
@@ -178,12 +217,13 @@ def test_codex_with_structured_output_parses_pydantic_schema():
         answer: str
 
     runner = FakeRunner('{"answer": "hold"}')
-    llm = CodexAppServerChatModel(model="gpt-5.4", runner=runner)
+    llm = CodexAppServerChatModel(model="gpt-5.5", runner=runner)
 
     response = llm.with_structured_output(Pick).invoke("Choose")
 
     assert response == Pick(answer="hold")
     assert runner.calls[0]["output_schema"]["properties"]["answer"]["type"] == "string"
+    assert runner.calls[0]["output_schema"]["additionalProperties"] is False
 
 
 @pytest.mark.unit
@@ -191,7 +231,7 @@ def test_codex_provider_is_registered_without_api_key():
     assert get_api_key_env("codex") is None
     assert get_model_options("codex", "quick")
 
-    client = create_llm_client("codex", "gpt-5.4")
+    client = create_llm_client("codex", "gpt-5.5")
 
     assert client.get_provider_name() == "codex"
 
