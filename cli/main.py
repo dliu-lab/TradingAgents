@@ -149,9 +149,23 @@ class MessageBuffer:
         self.tool_calls.append((timestamp, tool_name, args))
 
     def update_agent_status(self, agent, status):
-        if agent in self.agent_status:
-            self.agent_status[agent] = status
-            self.current_agent = agent
+        if agent not in self.agent_status:
+            return
+
+        previous_status = self.agent_status.get(agent)
+        self.agent_status[agent] = status
+        self.current_agent = agent
+
+        if status == previous_status or status == "pending":
+            return
+
+        status_messages = {
+            "in_progress": "started",
+            "completed": "completed",
+            "error": "failed",
+        }
+        status_message = status_messages.get(status, status)
+        self.add_message("System", f"{agent} {status_message}")
 
     def update_report_section(self, section_name, content):
         if section_name in self.report_sections:
