@@ -3,8 +3,12 @@ services:
     build: .
     env_file:
       - .env
+    environment:
+      - CODEX_APP_SERVER_COMMAND=codex
+      - CODEX_APP_SERVER_CWD=/home/appuser/app
     volumes:
       - tradingagents_data:/home/appuser/.tradingagents
+      - ${HOME}/.codex:/home/appuser/.codex
     tty: true
     stdin_open: true
 
@@ -21,8 +25,11 @@ services:
       - .env
     environment:
       - LLM_PROVIDER=ollama
+      - CODEX_APP_SERVER_COMMAND=codex
+      - CODEX_APP_SERVER_CWD=/home/appuser/app
     volumes:
       - tradingagents_data:/home/appuser/.tradingagents
+      - ${HOME}/.codex:/home/appuser/.codex
     depends_on:
       - ollama
     tty: true
