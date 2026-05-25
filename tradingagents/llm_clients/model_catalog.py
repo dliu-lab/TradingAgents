@@ -90,13 +90,13 @@ MODEL_OPTIONS: ProviderModeOptions = {
     },
     "codex": {
         "quick": [
-            ("GPT-5.4 Mini via local Codex app-server", "gpt-5.4-mini"),
-            ("GPT-5.4 via local Codex app-server", "gpt-5.4"),
+            ("GPT-5.3 Codex Spark via local Codex app-server", "gpt-5.3-codex-spark"),
+            ("GPT-5.3 Codex via local Codex app-server", "gpt-5.3-codex"),
             ("Custom model ID", "custom"),
         ],
         "deep": [
-            ("GPT-5.5 via local Codex app-server", "gpt-5.5"),
-            ("GPT-5.4 via local Codex app-server", "gpt-5.4"),
+            ("GPT-5.3 Codex via local Codex app-server", "gpt-5.3-codex"),
+            ("GPT-5.3 Codex Spark via local Codex app-server", "gpt-5.3-codex-spark"),
             ("Custom model ID", "custom"),
         ],
     },

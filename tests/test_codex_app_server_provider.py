@@ -122,7 +122,7 @@ def test_codex_process_client_runs_app_server_turn(monkeypatch):
     assert sent[3]["params"]["approvalPolicy"] == "on-request"
     assert sent[3]["params"]["sandboxPolicy"] == {
         "type": "readOnly",
-        "access": {"type": "fullAccess"},
+        "networkAccess": False,
     }
     assert sent[3]["params"]["outputSchema"] == {"type": "object"}
     assert process.terminated is True
@@ -194,3 +194,14 @@ def test_codex_provider_is_registered_without_api_key():
     client = create_llm_client("codex", "gpt-5.4")
 
     assert client.get_provider_name() == "codex"
+
+
+@pytest.mark.unit
+def test_codex_model_catalog_prefers_codex_chatgpt_models():
+    quick_models = [value for _label, value in get_model_options("codex", "quick")]
+    deep_models = [value for _label, value in get_model_options("codex", "deep")]
+
+    assert quick_models[0] == "gpt-5.3-codex-spark"
+    assert deep_models[0] == "gpt-5.3-codex"
+    assert "gpt-5.5" not in quick_models
+    assert "gpt-5.5" not in deep_models

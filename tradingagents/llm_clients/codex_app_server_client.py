@@ -35,6 +35,10 @@ DEFAULT_CODEX_CLIENT_NAME = "tradingagents_codex_bridge"
 DEFAULT_CODEX_CLIENT_TITLE = "TradingAgents Codex Bridge"
 DEFAULT_CODEX_CLIENT_VERSION = "0.1.0"
 DEFAULT_CODEX_APPROVAL_POLICY = "on-request"
+DEFAULT_CODEX_SANDBOX_POLICY: dict[str, Any] = {
+    "type": "readOnly",
+    "networkAccess": False,
+}
 
 TOOL_RESPONSE_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -188,10 +192,7 @@ class CodexAppServerProcessClient:
             "input": [{"type": "text", "text": prompt}],
             "cwd": cwd,
             "approvalPolicy": DEFAULT_CODEX_APPROVAL_POLICY,
-            "sandboxPolicy": {
-                "type": "readOnly",
-                "access": {"type": "fullAccess"},
-            },
+            "sandboxPolicy": DEFAULT_CODEX_SANDBOX_POLICY,
             "model": model,
             "summary": "none",
         }
