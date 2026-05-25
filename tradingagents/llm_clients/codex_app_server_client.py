@@ -34,6 +34,7 @@ DEFAULT_CODEX_TIMEOUT_SECONDS = 300.0
 DEFAULT_CODEX_CLIENT_NAME = "tradingagents_codex_bridge"
 DEFAULT_CODEX_CLIENT_TITLE = "TradingAgents Codex Bridge"
 DEFAULT_CODEX_CLIENT_VERSION = "0.1.0"
+DEFAULT_CODEX_APPROVAL_POLICY = "on-request"
 
 TOOL_RESPONSE_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -186,7 +187,7 @@ class CodexAppServerProcessClient:
             "threadId": thread_id,
             "input": [{"type": "text", "text": prompt}],
             "cwd": cwd,
-            "approvalPolicy": "onRequest",
+            "approvalPolicy": DEFAULT_CODEX_APPROVAL_POLICY,
             "sandboxPolicy": {
                 "type": "readOnly",
                 "access": {"type": "fullAccess"},

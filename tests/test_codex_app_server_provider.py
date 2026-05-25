@@ -119,6 +119,7 @@ def test_codex_process_client_runs_app_server_turn(monkeypatch):
     assert sent[1]["method"] == "initialized"
     assert sent[2]["method"] == "thread/start"
     assert sent[3]["method"] == "turn/start"
+    assert sent[3]["params"]["approvalPolicy"] == "on-request"
     assert sent[3]["params"]["sandboxPolicy"] == {
         "type": "readOnly",
         "access": {"type": "fullAccess"},
